@@ -5,6 +5,17 @@ Sample code for lottery prediction
 Use at your own risk.
 ## ################################
 ## ################################
+
+
+![alt text](2022_August15_PBall_IMG_3039.jpg)
+
+
+![alt text](<2022_June15_PBall_IMG_2871 - use.jpg>)
+
+
+![alt text](2022_March30_SuperLotto_IMG_2798.png)
+
+
 ### Preface
 ```shell
 # lottery2026
