@@ -41,13 +41,19 @@ Reverse a newest-to-oldest CSV:
 If -mode simulate it will also run Monte Carlo counts for more context.
 -----------------------------------------------------------------------------
 NEW COMPILATION:
+more seeds integrations:
 -----------------------------------------------------------------------------
 # install OpenSSL:
 $ sudo apt update
 $ sudo apt install -y build-essential pkg-config libssl-dev
 
-# Compile:
+# Compile 1:
 CGO_ENABLED=1 go run main.go   -game=fantasy5   -mode=simulate   -predict=1   -iters=200000   -seed-mode=sha256   -seed-base=123456789   -date=2026-04-13
+
+# or run the shell script: in scripts/run_experiments.sh
+# Compile 2:
+$ ./run_experiments.sh
+
 -----------------------------------------------------------------------------
 
 ```  
