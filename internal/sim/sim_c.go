@@ -1,8 +1,8 @@
 package sim
 
 /*
-#cgo CFLAGS: -O3 -march=native -I${SRCDIR}/eigen_samples/Eigen
-#cgo LDFLAGS: -lcrypto
+#cgo CXXFLAGS: -std=c++14 -O3 -march=native -I${SRCDIR}/Eigen -I${SRCDIR}/third_party
+#cgo LDFLAGS: -lstdc++ -lcrypto
 #include <stdlib.h>
 #include <stdint.h>
 #include "monte.h"
@@ -46,7 +46,7 @@ func RunMonteC(iterations, numbersRange, pickK int, base uint64, seedMode int, g
 	return res
 }
 
-// // RunPredictor wraps the C++ predictor function
-// func RunPredictor() {
-// 	C.run_predictor()
-// }
+// RunPredictor wraps the C++ predictor function
+func RunPredictor() {
+	C.run_predictor()
+}

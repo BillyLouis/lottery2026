@@ -119,4 +119,11 @@ func main() {
 	fmt.Println("Expected format:")
 	fmt.Println(expecting)
 	fmt.Println(" ")
+
+	// Call the Eigen predictor
+	fmt.Println("\n\n\n---------------------------------------")
+	log.Printf("Now Running Eigen predictor...")
+	simulator.RunPredictor()
+	fmt.Println("---------------------------------------")
+
 }

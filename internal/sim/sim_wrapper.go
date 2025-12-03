@@ -80,7 +80,7 @@ const (
 	SEED_KEPLER_CONST = 8
 )
 
-// // Add to the existing Simulator type
-// func (s *Simulator) RunPredictor() {
-// 	RunPredictor()
-// }
+// Add to the existing Simulator type
+func (s *Simulator) RunPredictor() {
+	RunPredictor()
+}
