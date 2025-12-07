@@ -747,6 +747,7 @@
 #include <vector>
 #include <random>
 #include <numeric>
+#include <unordered_map>
 #include <algorithm>
 #include <iomanip>
 #include <sstream>
@@ -930,6 +931,18 @@ PredictorInput getPredictorInput() {
             set.myDate = s.contains("date") ? s["date"].get<float>() : 18.0f;
             set.dateLabel = s.contains("dateLabel") ? s["dateLabel"].get<std::string>() : "Unknown date";
 
+            // Optional set identifier: allow numeric or string 'id' field in JSON
+            if (s.contains("id")) {
+                if (s["id"].is_number_integer()) {
+                    set.setId = std::to_string(s["id"].get<int>());
+                } else {
+                    set.setId = s["id"].get<std::string>();
+                }
+            } else {
+                // fallback to 1-based index label
+                set.setId = std::to_string(static_cast<int>(sidx) + 1);
+            }
+
             if (s.contains("constants") && s["constants"].is_array() && s["constants"].size() == 6) {
                 for (int k = 0; k < 6; ++k)
                     set.constants[k] = s["constants"][k].get<int>();
@@ -942,7 +955,8 @@ PredictorInput getPredictorInput() {
         }
 
         std::cout << "[INFO] Loaded " << input.sets.size() << " matrix sets.\n";
-        return input;
+            std::cout << "[INFO] Loaded " << input.sets.size() << " matrix sets." << std::endl;
+            return input;
     }
     catch (const std::exception& e) {
         std::cerr << "[ERROR] Failed to parse JSON: " << e.what() << "\n";
@@ -999,17 +1013,17 @@ void computeAndPrint(const Eigen::ArrayXXf& x, int multOrSum, float date,
                 int c = kConstTargets[k];
                 if (truncVal == c) {
                     opMode = "As is";
-                    pos = "CONST_POS" + std::to_string(k + 1);
+                    pos = "HIT_POS" + std::to_string(k + 1); // Still Hit
                     break;
                 }
                 if (minusOne == c) {
                     opMode = "(-1)";
-                    pos = "CONST_POS" + std::to_string(k + 1);
+                    pos = "HIT_POS" + std::to_string(k + 1); // Still Hit
                     break;
                 }
                 if (plusOne == c) {
                     opMode = "(+1)";
-                    pos = "HIT_POS" + std::to_string(k + 1);
+                    pos = "HIT_POS" + std::to_string(k + 1); // Hit position
                     break;
                 }
             }
@@ -1017,7 +1031,7 @@ void computeAndPrint(const Eigen::ArrayXXf& x, int multOrSum, float date,
             // Keep a position label for the node even when none matched (use matrix pos)
             if (pos == "none") pos = "MISS_POS" + std::to_string(counter);
 
-            Node* node = new Node(idx, result, truncVal, minusOne, plusOne, opMode, pos);
+            Node* node = new Node(idx, result, truncVal, minusOne, plusOne, counter, opMode, pos);
             appendNode(head, node);
 
             out << std::setw(4) << counter++ << ") "
@@ -1061,6 +1075,7 @@ void printLinkedList(Node* head) {
     int count = 0;
     while (current) {
         std::cout << count << ": "
+                  << "line=" << current->count << " "
                   << current->idx << " | "
                   << current->value << " | "
                   << current->trunc << " | "
@@ -1072,6 +1087,239 @@ void printLinkedList(Node* head) {
         count ++;
     }
     std::cout << "==========================================================\n\n";
+}
+
+// Entry that holds per-set positions and numeric values for an index|count key.
+struct PositionEntry {
+    std::vector<std::string> positions; // per-set position labels (HIT_POSn, CONST_POSn, MISS...)
+    std::vector<float> values;          // per-set numeric value
+    std::vector<int> truncs;            // per-set truncation
+};
+
+// Build a table mapping index string (e.g. "R0:C5|32") to PositionEntry
+// (one entry per matrix set). If a set does not contain that index, the
+// corresponding slot will be "MISSING" and value=nan, trunc=-1.
+static std::unordered_map<std::string, PositionEntry>
+buildPositionTable(const std::vector<PredictorSet>& sets) {
+    std::unordered_map<std::string, PositionEntry> table;
+    size_t mcount = sets.size();
+
+    for (size_t si = 0; si < mcount; ++si) {
+        const Node* cur = sets[si].head;
+        while (cur) {
+            // key includes both index and count so comparisons are by same index AND same line
+            std::string key = cur->idx + std::string("|") + std::to_string(cur->count);
+            auto it = table.find(key);
+            if (it == table.end()) {
+                PositionEntry e;
+                e.positions.assign(mcount, std::string("MISSING"));
+                e.values.assign(mcount, std::numeric_limits<float>::quiet_NaN());
+                e.truncs.assign(mcount, -1);
+                e.positions[si] = cur->position;
+                e.values[si] = cur->value;
+                e.truncs[si] = cur->trunc;
+                table.emplace(key, std::move(e));
+            } else {
+                it->second.positions[si] = cur->position;
+                it->second.values[si] = cur->value;
+                it->second.truncs[si] = cur->trunc;
+            }
+            cur = cur->next;
+        }
+    }
+
+    return table;
+}
+
+// Print indices where the given targetPosition appears in at least minMatches
+// of the matrices. If requireAll==true then only print indices where every
+// matrix has the targetPosition.
+static void printPositionMatches(const std::unordered_map<std::string, PositionEntry>& table,
+                                 const std::string& targetPosition,
+                                 const std::vector<std::string>& labels,
+                                 size_t minMatches = 2,
+                                 bool requireAll = false) {
+    // Header for this search (one header per call)
+    //std::cout << "\n[COMPARE] Looking for position='" << targetPosition << "' (minMatches="
+     //         << minMatches << ", requireAll=" << (requireAll?"true":"false") << ")\n";
+
+    for (const auto& p : table) {
+        const std::string key = p.first;
+        // split key into idx and count
+        auto sep = key.find('|');
+        std::string idx = (sep == std::string::npos) ? key : key.substr(0, sep);
+        std::string countStr = (sep == std::string::npos) ? std::string("0") : key.substr(sep + 1);
+        const PositionEntry& entry = p.second;
+        const std::vector<std::string>& vec = entry.positions;
+        size_t hits = 0;
+        std::vector<std::string> hitSetLabels;
+        for (size_t si = 0; si < vec.size(); ++si) {
+            if (vec[si] == targetPosition) { ++hits; hitSetLabels.push_back(labels[si]); }
+        }
+
+        // Only print entries that meet the requested criteria
+        bool shouldPrint = false;
+        if (requireAll) {
+            shouldPrint = (hits == vec.size());
+        } else {
+            shouldPrint = (hits >= minMatches);
+        }
+
+        if (!shouldPrint) continue;
+
+        // Print a single-line summary for this key including line and index
+        std::cout << "[COMPARE] line " << countStr << " [" << idx << "] Looking for position='"
+                  << targetPosition << "' (minMatches=" << minMatches << ", requireAll="
+                  << (requireAll?"true":"false") << ")\n";
+
+        // Print which matrices had which positions (label:pos(value->trunc))
+        std::cout << " -> ";
+        for (size_t si = 0; si < vec.size(); ++si) {
+            if (si) std::cout << " ";
+            // value may be NaN for missing entries
+            std::ostringstream valss;
+            valss << std::fixed << std::setprecision(6);
+            if (!std::isnan(entry.values[si])) {
+                valss << entry.values[si] << "->" << entry.truncs[si];
+            } else {
+                valss << "NA";
+            }
+            std::cout << labels[si] << ":" << vec[si] << "(" << valss.str() << ")";
+        }
+
+        // Print a natural-language list of which sets matched
+        if (hitSetLabels.empty()) {
+            std::cout << " | no matches\n";
+        } else {
+            std::cout << " | matches in matrix set";
+            // Format: single, pair with 'and', or comma-separated with 'and' before last
+            if (hitSetLabels.size() == 1) {
+                std::cout << hitSetLabels[0] << "\n";
+            } else if (hitSetLabels.size() == 2) {
+                std::cout << hitSetLabels[0] << " and " << hitSetLabels[1] << "\n";
+            } else {
+                for (size_t h = 0; h < hitSetLabels.size(); ++h) {
+                    if (h && h + 1 == hitSetLabels.size()) std::cout << " and ";
+                    else if (h) std::cout << ", ";
+                    std::cout << hitSetLabels[h];
+                }
+                std::cout << "\n";
+            }
+        }
+
+        // --- CSV output (quoted fields) for easy export/parsing ---
+        // CSV columns: position,line,index,hitCount,hitSets,perSetPositions
+        // hitSets: semicolon-separated list of matching set numbers
+        // perSetPositions: semicolon-separated list like S1:POS;S2:POS;...
+        std::string hitSetsStr;
+        for (size_t h = 0; h < hitSetLabels.size(); ++h) {
+            if (h) hitSetsStr += ";";
+            hitSetsStr += hitSetLabels[h];
+        }
+
+        std::string perSetStr;
+        for (size_t si = 0; si < vec.size(); ++si) {
+            if (si) perSetStr += ";";
+            std::ostringstream vss;
+            vss << std::fixed << std::setprecision(6);
+            if (!std::isnan(entry.values[si])) vss << entry.values[si] << "->" << entry.truncs[si];
+            else vss << "NA";
+            perSetStr += labels[si] + ":" + vec[si] + "(" + vss.str() + ")";
+        }
+
+        // Print CSV header once per targetPosition call (so it's easy to find in the file)
+        // std::cout << "CSV: \"position\",\"line\",\"index\",\"hitCount\",\"hitSets\",\"perSetPositions\"\n";
+        // std::cout << "CSV: \"" << targetPosition << "\",\"" << countStr << "\",\""
+        //           << idx << "\"," << hits << ",\"" << hitSetsStr << "\",\""
+        //           << perSetStr << "\"\n";
+    }
+}
+
+// Variant: accept multiple target position labels (match if any of them appear)
+static void printPositionMatchesAny(const std::unordered_map<std::string, PositionEntry>& table,
+                                    const std::vector<std::string>& targetPositions,
+                                    const std::vector<std::string>& labels,
+                                    size_t minMatches = 2,
+                                    bool requireAll = false) {
+    // Build combined descriptor
+    std::string desc;
+    for (size_t t = 0; t < targetPositions.size(); ++t) {
+        if (t) desc += "/";
+        desc += targetPositions[t];
+    }
+
+    for (const auto& p : table) {
+        const std::string key = p.first;
+        auto sep = key.find('|');
+        std::string idx = (sep == std::string::npos) ? key : key.substr(0, sep);
+        std::string countStr = (sep == std::string::npos) ? std::string("0") : key.substr(sep + 1);
+        const PositionEntry& entry = p.second;
+        const std::vector<std::string>& vec = entry.positions;
+
+        size_t hits = 0;
+        std::vector<std::string> hitSetLabels;
+        for (size_t si = 0; si < vec.size(); ++si) {
+            for (const auto& tp : targetPositions) {
+                if (vec[si] == tp) { ++hits; hitSetLabels.push_back(labels[si]); break; }
+            }
+        }
+
+        bool shouldPrint = false;
+        if (requireAll) shouldPrint = (hits == vec.size());
+        else shouldPrint = (hits >= minMatches);
+        if (!shouldPrint) continue;
+
+        // Print header and per-set positions with values
+        // std::cout << "[COMPARE] line " << countStr << " [" << idx << "] Looking for position='"
+        //           << desc << "' (minMatches=" << minMatches << ", requireAll=" << (requireAll?"true":"false") << ")\n";
+
+        // std::cout << " -> ";
+        for (size_t si = 0; si < vec.size(); ++si) {
+            if (si) std::cout << " ";
+            std::ostringstream valss;
+            valss << std::fixed << std::setprecision(6);
+            if (!std::isnan(entry.values[si])) valss << entry.values[si] << "->" << entry.truncs[si];
+            else valss << "NA";
+            std::cout << labels[si] << ":" << vec[si] << "(" << valss.str() << ")";
+        }
+
+        if (hitSetLabels.empty()) {
+            std::cout << " | no matches\n";
+        } else {
+            std::cout << " | matches in matrix set";
+            if (hitSetLabels.size() == 1) std::cout << hitSetLabels[0] << "\n";
+            else if (hitSetLabels.size() == 2) std::cout << hitSetLabels[0] << " and " << hitSetLabels[1] << "\n";
+            else {
+                for (size_t h = 0; h < hitSetLabels.size(); ++h) {
+                    if (h && h + 1 == hitSetLabels.size()) std::cout << " and ";
+                    else if (h) std::cout << ", ";
+                    std::cout << hitSetLabels[h];
+                }
+                std::cout << "\n";
+            }
+        }
+
+        // CSV
+        std::string hitSetsStr;
+        for (size_t h = 0; h < hitSetLabels.size(); ++h) {
+            if (h) hitSetsStr += ";";
+            hitSetsStr += hitSetLabels[h];
+        }
+
+        std::string perSetStr;
+        for (size_t si = 0; si < vec.size(); ++si) {
+            if (si) perSetStr += ";";
+            std::ostringstream vss;
+            vss << std::fixed << std::setprecision(6);
+            if (!std::isnan(entry.values[si])) vss << entry.values[si] << "->" << entry.truncs[si];
+            else vss << "NA";
+            perSetStr += labels[si] + ":" + vec[si] + "(" + vss.str() + ")";
+        }
+
+        // std::cout << "CSV: \"position\",\"line\",\"index\",\"hitCount\",\"hitSets\",\"perSetPositions\"\n";
+        // std::cout << "CSV: \"" << desc << "\",\"" << countStr << "\",\"" << idx << "\"," << hits
+        //           << ",\"" << hitSetsStr << "\",\"" << perSetStr << "\"\n";
+    }
 }
 
 //==============================================================
@@ -1187,7 +1435,32 @@ void run_predictor() {
         //==== FINAL OUTPUT PER MATRIX SET ====
         std::cout << "\n\n========= FINAL LINKED LIST OUTPUT FOR MATRIX =========\n";
         printLinkedList(set.head);
-        clearList(set.head);
+    }
+
+    // Build cross-matrix comparison table (do not clear lists yet)
+    auto table = buildPositionTable(input.sets);
+
+    // Build labels vector from input.sets using 1-based index (1,2,3,...)
+    std::vector<std::string> setLabels;
+    for (size_t si = 0; si < input.sets.size(); ++si) {
+        setLabels.push_back(std::to_string(static_cast<int>(si) + 1));
+    }
+
+    // Check all six constant positions (HIT_POS1 .. HIT_POS6)
+    // for (int k = 1; k <= 6; ++k) {
+    //     // consider both HIT_POSk and CONST_POSk as matches for the "POSk" check
+    //     std::string hitLabel = "HIT_POS" + std::to_string(k);
+    //     std::string constLabel = "CONST_POS" + std::to_string(k);
+    //     std::vector<std::string> targets = {hitLabel, constLabel};
+    //     // print indices that have at least 2 matrices reporting this POS (either HIT or CONST)
+    //     printPositionMatchesAny(table, targets, setLabels, 2, false);
+    //     // print indices where every matrix reported this POS
+    //     printPositionMatchesAny(table, targets, setLabels, 0, true);
+    // }
+
+    // Clear linked lists now that we've done comparisons
+    for (size_t si = 0; si < input.sets.size(); ++si) {
+        clearList(input.sets[si].head);
     }
 
     // ( future aggregate section across all sets)

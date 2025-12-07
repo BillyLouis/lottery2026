@@ -180,6 +180,7 @@ struct PredictorSet {
     Eigen::MatrixXf matrix;
     float myDate = 0.0f;
     std::string dateLabel;
+    std::string setId;     // optional identifier from JSON (or fallback to index)
     int constants[6];
     Node* head = nullptr;
 };
@@ -194,14 +195,15 @@ struct Node {
     int trunc;
     int minus1;
     int plus1;
+        int count;            // line/count number in traversal
     std::string op_mode;
     std::string position;
     Node* next;
-    Node() : value(0), trunc(0), minus1(0), plus1(0), next(nullptr) {}
-    Node(const std::string& i, float v, int t, int m1, int p1,
-         const std::string& op, const std::string& pos)
-      : idx(i), value(v), trunc(t), minus1(m1), plus1(p1),
-        op_mode(op), position(pos), next(nullptr) {}
+        Node() : value(0), trunc(0), minus1(0), plus1(0), count(0), next(nullptr) {}
+        Node(const std::string& i, float v, int t, int m1, int p1, int cnt,
+                 const std::string& op, const std::string& pos)
+            : idx(i), value(v), trunc(t), minus1(m1), plus1(p1), count(cnt),
+                op_mode(op), position(pos), next(nullptr) {}
 };
 
 PredictorInput getPredictorInput();
