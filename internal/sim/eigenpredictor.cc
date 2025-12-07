@@ -733,457 +733,15 @@
   
 // // }
 
-// //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// //%%%%%%%%%%%%%%%%%%%%%%%%%%% WORKING VERSION 3.0 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// // #include "eigenpredictor.h"
-// // #include <Eigen/Dense>
-// // #include <Eigen/IterativeLinearSolvers>
-// // #include <iostream>
-// // #include <vector>
-// // #include <random>
-// // #include <numeric>
-// // #include <algorithm>
-// // #include <iomanip>
-// // #include <sstream>
-// // #include <cmath>
-
-// // using namespace std;
-
-// // // constants
-// // constexpr size_t m = 6;
-// // constexpr size_t l = 6;
-// // constexpr size_t n = 108;
-
-// // // encapsulated global-like configuration
-// // struct PredictorGlobals {
-// //     float holdB = 4.0f;
-// //     float holdX = 0.3f;
-// //     float xBall = 0.0f;
-// //     float myDate = 18.0f;
-// //     int myMonth = 3;
-// //     int myMultiplier = 0;
-// // };
-
-// // // --------------------------------------------------------------------------------------
-// // // Generate synthetic data (deterministic, thread-safe)
-// // std::pair<Eigen::MatrixXf, Eigen::MatrixXf> GenerateData(size_t n) {
-// //     static thread_local std::mt19937 re(std::random_device{}());
-// //     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
-
-// //     Eigen::VectorXf x_data = Eigen::VectorXf::LinSpaced(n, 0, n - 1);
-// //     Eigen::VectorXf y_data = Eigen::VectorXf::LinSpaced(n, 0, n - 1);
-
-// //     x_data = x_data.unaryExpr([&](float v) { return v + dist(re); });
-// //     y_data = y_data.unaryExpr([&](float v) { return v + dist(re); });
-
-// //     return {x_data, y_data};
-// // }
-
-// // // --------------------------------------------------------------------------------------
-// // // Unified compute & printer
-// // template<typename Fn>
-// // void computeAndPrint(const Eigen::ArrayXXf& x, int multiplier, float dateVal, Fn elementFn, const PredictorGlobals& g) {
-// //     float holdB_or_Date = dateVal;
-// //     float xSumRow[m] = {0}, xSumCol[l] = {0};
-// //     float holdChange = 0.0f;
-// //     float xBall = 0.0f;
-
-// //     ostringstream out;
-
-// //     for (size_t i = 0; i < m; ++i) {
-// //         for (size_t j = 0; j < l; ++j) {
-// //             float val = elementFn(x(i, j), multiplier, dateVal);
-// //             out << "[R" << i << ":C" << j << "] " << val << "  			";
-// //             xSumRow[i] += x(i, j);
-// //             xSumCol[j] += x(i, j);
-// //             if (i == 0 && j == 1) xBall = x(i, j) - 1;
-// //         }
-// //         out << "\n";
-// //     }
-// //     out << "\n";
-
-// //     int k = 0;
-// //     for (int i = 0; i < 12; ++i) {
-// //         if (i == 0) { holdChange = abs(xSumRow[0]); out << "\n% DATE\n"; }
-// //         else if (i < 6) holdChange = abs(xSumRow[i]);
-// //         else if (i == 6) {
-// //             holdChange = abs(xSumRow[0]);
-// //             out << "\n\n% B\n";
-// //             holdB_or_Date = g.holdB;
-// //             k = 0;
-// //         } else holdChange = abs(xSumRow[i - 6]);
-
-// //         while (holdChange > 71) holdChange /= holdB_or_Date;
-// //         out << "ROW: P" << k + 1 << ": " << holdChange << "		";
-// //         k++;
-// //     }
-
-// //     out << "\n\n";
-
-// //     k = 0;
-// //     for (int i = 0; i < 12; ++i) {
-// //         if (i == 0) { holdChange = abs(xSumCol[0]); out << "\n% DATE\n"; }
-// //         else if (i < 6) holdChange = abs(xSumCol[i]);
-// //         else if (i == 6) {
-// //             holdChange = abs(xSumCol[0]);
-// //             out << "\n\n% B\n";
-// //             holdB_or_Date = g.holdB;
-// //             k = 0;
-// //         } else holdChange = abs(xSumCol[i - 6]);
-
-// //         while (holdChange > 71) holdChange /= holdB_or_Date;
-// //         out << "COL: P" << k + 1 << ": " << holdChange << "		";
-// //         k++;
-// //     }
-
-// //     out << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
-// //     out << "Possible Ball: " << xBall << "\n\n";
-
-// //     out << "REAL:ROW: ";
-// //     for (int i = 0; i < m; ++i) out << "P" << i + 1 << ": " << xSumRow[i] << "		";
-// //     out << "\nREAL:COL: ";
-// //     for (int i = 0; i < l; ++i) out << "P" << i + 1 << ": " << xSumCol[i] << "		";
-// //     out << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
-
-// //     cout << out.str();
-// // }
-
-// // // --------------------------------------------------------------------------------------
-// // // Variants preserving print logic
-// // void computeDateOnly(const Eigen::ArrayXXf& x, int& multiplxxx, float& aDate) {
-// //     PredictorGlobals g;
-// //     computeAndPrint(x, multiplxxx, aDate,
-// //         [](float v, int mult, float) { return v * mult; }, g);
-// // }
-
-// // void computeDateSummation(const Eigen::ArrayXXf& x, int& aSum, float& aDate) {
-// //     PredictorGlobals g;
-// //     computeAndPrint(x, aSum, aDate,
-// //         [](float v, int sum, float date) { return (v * sum) + date; }, g);
-// // }
-
-// // void computeDateSummation2(const Eigen::ArrayXXf& x, int& aSum, float& aDate) {
-// //     PredictorGlobals g;
-// //     computeAndPrint(x, aSum, aDate,
-// //         [](float v, int sum, float date) { return (v * date) + sum; }, g);
-// // }
-
-// // // --------------------------------------------------------------------------------------
-// // void run_predictor() {
-// //     PredictorGlobals g;
-
-// //     Eigen::MatrixXf x1, y;
-// //     std::tie(x1, y) = GenerateData(n);
-
-// //     y.array() *= g.holdX;
-// //     y.array() += g.holdB;
-
-// //     // Build feature matrix (replicate your 6-column transform)
-// //     Eigen::MatrixXf x01 = x1.array().sin();
-// //     Eigen::MatrixXf x02 = x1.array().cos();
-// //     Eigen::MatrixXf x03 = x1.array().tan();
-// //     Eigen::MatrixXf x04 = (x1.array() * 0.3f).sin();
-// //     Eigen::MatrixXf x05 = (x1.array() * 0.5f).cos();
-// //     Eigen::MatrixXf x06 = (x1.array() * 0.1f).tan();
-
-// //     Eigen::MatrixXf x(n, 6);
-// //     x << x01, x02, x03, x04, x05, x06;
-
-// //     cout << "\n";
-// //     Eigen::LeastSquaresConjugateGradient<Eigen::MatrixXf> gd;
-// //     gd.setMaxIterations(1000);
-// //     gd.setTolerance(0.001f);
-// //     gd.compute(x);
-// //     Eigen::VectorXf b = gd.solve(y);
-// //     cout << "Estimated parameters vector : " << b << endl;
-
-// //     Eigen::VectorXf b_norm = (x.transpose() * x).ldlt().solve(x.transpose() * y);
-// //     cout << "Estimated with normal equation parameters vector : " << b_norm << endl << "\n";
-
-// //     // Hardcoded new_x (restored)
-// //     Eigen::MatrixXf new_x(6, 6);
-// //     new_x << 
-// //         1, 0.5, 0.2, 0.8, 0.4, 0.9,
-// //         0.3, 0.7, 0.1, 0.9, 0.2, 0.6,
-// //         0.6, 0.4, 0.8, 0.1, 0.5, 0.3,
-// //         0.9, 0.2, 0.7, 0.3, 0.8, 0.1,
-// //         0.5, 0.9, 0.4, 0.2, 0.6, 0.7,
-// //         0.4, 0.8, 0.3, 0.9, 0.1, 0.5;
-
-// //     g.myDate = 18;
-// //     cout << "date: March 18th, 2024\n" << fixed << setprecision(6);
-// //     cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n";
-
-// //     auto new_y = new_x.array().rowwise() * b.transpose().array();
-// //     auto new_y_norm = new_x.array().rowwise() * b_norm.transpose().array();
-
-// //     cout << "\nPredicted values : \n" << new_y << "		\n\n";
-// //     cout << "Predicted(norm) values : \n" << new_y_norm << "		\n\n";
-
-// //     cout << "##########################################################################\n1) - PRINTING X-VECTOR: DATE ONLY:\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-// //     g.myMultiplier = g.myDate; computeDateOnly(new_y, g.myMultiplier, g.myDate);
-
-// //     cout << "##########################################################################\nPRINTING Y-VECTOR: DATE ONLY\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-// //     computeDateOnly(new_y_norm, g.myMultiplier, g.myDate);
-
-// //     cout << "##########################################################################\n2) - PRINTING X-VECTOR: DATE + SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-// //     computeDateSummation(new_y, g.myMultiplier, g.myDate);
-
-// //     cout << "##########################################################################\nPRINTING Y-VECTOR: DATE + SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-// //     computeDateSummation(new_y_norm, g.myMultiplier, g.myDate);
-
-// //     cout << "##########################################################################\n3) - PRINTING X-VECTOR: DATE * SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-// //     computeDateSummation2(new_y, g.myMultiplier, g.myDate);
-
-// //     cout << "##########################################################################\nPRINTING Y-VECTOR: DATE * SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-// //     computeDateSummation2(new_y_norm, g.myMultiplier, g.myDate);
-// // }
-
-// //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// //%%%%%%%%%%%%%%%%%%%%%%%%%%% OPTIMIZATION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// //%%%%%%%%%%%%%%%%%%%%%%% WORKING VERSION 4.0 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-// #include "eigenpredictor.h"
-// #include <Eigen/Dense>
-// #include <Eigen/IterativeLinearSolvers>
-// #include <iostream>
-// #include <vector>
-// #include <random>
-// #include <numeric>
-// #include <algorithm>
-// #include <iomanip>
-// #include <sstream>
-// #include <cmath>
-
-// using namespace std;
-
-// constexpr size_t m = 6;
-// constexpr size_t l = 6;
-// constexpr size_t n = 108;
-
-// // Configuration struct
-// struct PredictorGlobals {
-//     float holdB = 4.0f;
-//     float holdX = 0.3f;
-//     float xBall = 0.0f;
-//     float myDate = 18.0f;
-//     int myMonth = 3;
-//     int myMultiplier = 0;
-// };
-
-// // -----------------------------------------------------------------------------
-// // Generate random input data (deterministic-safe)
-// std::pair<Eigen::MatrixXf, Eigen::MatrixXf> GenerateData(size_t n) {
-//     static thread_local std::mt19937 re(std::random_device{}());
-//     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
-
-//     Eigen::VectorXf x_data = Eigen::VectorXf::LinSpaced(n, 0, n - 1);
-//     Eigen::VectorXf y_data = Eigen::VectorXf::LinSpaced(n, 0, n - 1);
-
-//     x_data = x_data.unaryExpr([&](float v) { return v + dist(re); });
-//     y_data = y_data.unaryExpr([&](float v) { return v + dist(re); });
-
-//     return {x_data, y_data};
-// }
-
-// // -----------------------------------------------------------------------------
-// // Unified print & computation
-// template<typename Fn>
-// void computeAndPrint(const Eigen::ArrayXXf& x, int multiplier, float dateVal, Fn elementFn, const PredictorGlobals& g) {
-//     float holdB_or_Date = dateVal;
-//     float xSumRow[m] = {0}, xSumCol[l] = {0};
-//     float holdChange = 0.0f;
-//     float xBall = 0.0f;
-
-//     ostringstream out;
-
-//     for (size_t i = 0; i < m; ++i) {
-//         for (size_t j = 0; j < l; ++j) {
-//             float val = elementFn(x(i, j), multiplier, dateVal);
-//             out << "[R" << i << ":C" << j << "] " << val << "  			";
-//             xSumRow[i] += x(i, j);
-//             xSumCol[j] += x(i, j);
-//             if (i == 0 && j == 1) xBall = x(i, j) - 1;
-//         }
-//         out << "\n";
-//     }
-//     out << "\n";
-
-//     int k = 0;
-//     for (int i = 0; i < 12; ++i) {
-//         if (i == 0) { holdChange = abs(xSumRow[0]); out << "\n% DATE\n"; }
-//         else if (i < 6) holdChange = abs(xSumRow[i]);
-//         else if (i == 6) {
-//             holdChange = abs(xSumRow[0]);
-//             out << "\n\n% B\n";
-//             holdB_or_Date = g.holdB;
-//             k = 0;
-//         } else holdChange = abs(xSumRow[i - 6]);
-
-//         while (holdChange > 71) holdChange /= holdB_or_Date;
-//         out << "ROW: P" << k + 1 << ": " << holdChange << "		";
-//         k++;
-//     }
-
-//     out << "\n\n";
-
-//     k = 0;
-//     for (int i = 0; i < 12; ++i) {
-//         if (i == 0) { holdChange = abs(xSumCol[0]); out << "\n% DATE\n"; }
-//         else if (i < 6) holdChange = abs(xSumCol[i]);
-//         else if (i == 6) {
-//             holdChange = abs(xSumCol[0]);
-//             out << "\n\n% B\n";
-//             holdB_or_Date = g.holdB;
-//             k = 0;
-//         } else holdChange = abs(xSumCol[i - 6]);
-
-//         while (holdChange > 71) holdChange /= holdB_or_Date;
-//         out << "COL: P" << k + 1 << ": " << holdChange << "		";
-//         k++;
-//     }
-
-//     out << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
-//     out << "Possible Ball: " << xBall << "\n\n";
-
-//     out << "REAL:ROW: ";
-//     for (int i = 0; i < m; ++i) out << "P" << i + 1 << ": " << xSumRow[i] << "		";
-//     out << "\nREAL:COL: ";
-//     for (int i = 0; i < l; ++i) out << "P" << i + 1 << ": " << xSumCol[i] << "		";
-//     out << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
-
-//     cout << out.str();
-// }
-
-// // -----------------------------------------------------------------------------
-// // Wrappers for different modes
-// void computeDateOnly(const Eigen::ArrayXXf& x, int& multiplxxx, float& aDate) {
-//     PredictorGlobals g;
-//     computeAndPrint(x, multiplxxx, aDate,
-//         [](float v, int mult, float) { return v * mult; }, g);
-// }
-
-// void computeDateSummation(const Eigen::ArrayXXf& x, int& aSum, float& aDate) {
-//     PredictorGlobals g;
-//     computeAndPrint(x, aSum, aDate,
-//         [](float v, int sum, float date) { return (v * sum) + date; }, g);
-// }
-
-// void computeDateSummation2(const Eigen::ArrayXXf& x, int& aSum, float& aDate) {
-//     PredictorGlobals g;
-//     computeAndPrint(x, aSum, aDate,
-//         [](float v, int sum, float date) { return (v * date) + sum; }, g);
-// }
-
-// // -----------------------------------------------------------------------------
-// // Master function
-// void run_predictor() {
-//     PredictorGlobals g;
-
-//     Eigen::MatrixXf x1, y;
-//     std::tie(x1, y) = GenerateData(n);
-
-//     y.array() *= g.holdX;
-//     y.array() += g.holdB;
-
-//     Eigen::MatrixXf x01 = x1.array().sin();
-//     Eigen::MatrixXf x02 = x1.array().cos();
-//     Eigen::MatrixXf x03 = x1.array().tan();
-//     Eigen::MatrixXf x04 = (x1.array() * 0.3f).sin();
-//     Eigen::MatrixXf x05 = (x1.array() * 0.5f).cos();
-//     Eigen::MatrixXf x06 = (x1.array() * 0.1f).tan();
-
-//     Eigen::MatrixXf x(n, 6);
-//     x << x01, x02, x03, x04, x05, x06;
-
-//     cout << "\n";
-//     Eigen::LeastSquaresConjugateGradient<Eigen::MatrixXf> gd;
-//     gd.setMaxIterations(1000);
-//     gd.setTolerance(0.001f);
-//     gd.compute(x);
-//     Eigen::VectorXf b = gd.solve(y);
-//     cout << "Estimated parameters vector : " << b << endl;
-
-//     Eigen::VectorXf b_norm = (x.transpose() * x).ldlt().solve(x.transpose() * y);
-//     cout << "Estimated with normal equation parameters vector : " << b_norm << endl << "\n";
-
-//     // Restored hardcoded test data
-//     Eigen::MatrixXf new_x(6, 6);
-//     new_x << 
-//         1, 0.5, 0.2, 0.8, 0.4, 0.9,
-//         0.3, 0.7, 0.1, 0.9, 0.2, 0.6,
-//         0.6, 0.4, 0.8, 0.1, 0.5, 0.3,
-//         0.9, 0.2, 0.7, 0.3, 0.8, 0.1,
-//         0.5, 0.9, 0.4, 0.2, 0.6, 0.7,
-//         0.4, 0.8, 0.3, 0.9, 0.1, 0.5;
-
-//     g.myDate = 18;
-//     cout << "date: March 18th, 2024\n" << fixed << setprecision(6);
-//     cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n";
-
-//     auto new_y = new_x.array().rowwise() * b.transpose().array();
-//     auto new_y_norm = new_x.array().rowwise() * b_norm.transpose().array();
-
-//     cout << "\nPredicted values : \n" << new_y << "		\n\n";
-//     cout << "Predicted(norm) values : \n" << new_y_norm << "		\n\n";
-
-//     // -------------------------------------------------------------------------
-//     // STEP 1-6 FULL SEQUENCE
-//     cout << "##########################################################################\n1) - PRINTING X-VECTOR: DATE ONLY:\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-//     g.myMultiplier = g.myDate; computeDateOnly(new_y, g.myMultiplier, g.myDate);
-
-//     cout << "##########################################################################\nPRINTING Y-VECTOR: DATE ONLY\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-//     computeDateOnly(new_y_norm, g.myMultiplier, g.myDate);
-
-//     cout << "##########################################################################\n2) - PRINTING X-VECTOR: DATE + SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-//     computeDateSummation(new_y, g.myMultiplier, g.myDate);
-
-//     cout << "##########################################################################\nPRINTING Y-VECTOR: DATE + SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-//     computeDateSummation(new_y_norm, g.myMultiplier, g.myDate);
-
-//     cout << "##########################################################################\n3) - PRINTING X-VECTOR: DATE * SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-//     computeDateSummation2(new_y, g.myMultiplier, g.myDate);
-
-//     cout << "##########################################################################\nPRINTING Y-VECTOR: DATE * SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-//     computeDateSummation2(new_y_norm, g.myMultiplier, g.myDate);
-
-//     cout << "##########################################################################\n4) - PRINTING X-VECTOR: [B + DATE]\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-//     g.myMultiplier = g.holdB; computeDateOnly(new_y, g.myMultiplier, g.myDate);
-
-//     cout << "##########################################################################\nPRINTING Y-VECTOR: [B + DATE]\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-//     g.myMultiplier = g.holdB; computeDateOnly(new_y_norm, g.myMultiplier, g.myDate);
-
-//     cout << "################################################################################################################################################################################################################\n";
-//     cout << "5) - PRINTING X-VECTOR: (NORM * B) + DATE\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-//     g.myMultiplier = g.holdB; computeDateSummation(new_y, g.myMultiplier, g.myDate);
-
-//     cout << "##########################################################################\nPRINTING Y-VECTOR: (NORM * B) + DATE\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-//     g.myMultiplier = g.holdB; computeDateSummation(new_y_norm, g.myMultiplier, g.myDate);
-
-//     cout << "##########################################################################\n6) - PRINTING X-VECTOR: (NORM * DATE) + B\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-//     g.myMultiplier = g.holdB; computeDateSummation2(new_y, g.myMultiplier, g.myDate);
-
-//     cout << "##########################################################################\nPRINTING Y-VECTOR: (NORM * DATE) + B\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-//     g.myMultiplier = g.holdB; computeDateSummation2(new_y_norm, g.myMultiplier, g.myDate);
-// }
-
-
-//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+//%%%%%%%%%%%%%%%%%%%%%%%%%%% OPTIMIZATION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+//%%%%%%%%%%%%%%%%%%%%%%% WORKING VERSION 5.3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #include "eigenpredictor.h"
 #include <Eigen/Dense>
 #include <Eigen/IterativeLinearSolvers>
-#include "nlohmann/json.hpp"
+#include "third_party/nlohmann/json.hpp"
 #include <fstream>
 #include <iostream>
 #include <vector>
@@ -1194,7 +752,20 @@
 #include <sstream>
 #include <cmath>
 
+#include <unistd.h>   // for dup2
+#include <fcntl.h>    // for open
 
+
+//=== For the followings: C++17 is required (this codebase is limited to C++ 11)
+// #include <filesystem> 
+// namespace fs = std::filesystem;
+#include <sys/stat.h>
+namespace fs {
+    inline bool exists(const std::string& path) {
+        struct stat buffer;
+        return (stat(path.c_str(), &buffer) == 0);
+    }
+}
 
 using json = nlohmann::json;
 using namespace std;
@@ -1202,6 +773,16 @@ using namespace std;
 constexpr size_t m = 6;
 constexpr size_t l = 6;
 constexpr size_t n = 108;
+
+// ======================================================
+// Predictor constants (user-defined tracking targets)
+// ======================================================
+static const int kConstTargets[6] = {11, 17, 24, 35, 38, 5};
+
+// The `Node` struct is defined in `eigenpredictor.h` (shared header).
+// Use the header's definition here and keep a package-local head pointer.
+static Node* gHead = nullptr; // global linked list head
+
 
 // Configuration struct
 struct PredictorGlobals {
@@ -1214,79 +795,7 @@ struct PredictorGlobals {
 };
 
 
-// PredictorInput getPredictorInput() {
-//     PredictorInput input;
-//     input.matrix = Eigen::MatrixXf(6, 6);
 
-//     input.matrix <<
-//         1, 0.5, 0.2, 0.8, 0.4, 0.9,
-//         0.3, 0.7, 0.1, 0.9, 0.2, 0.6,
-//         0.6, 0.4, 0.8, 0.1, 0.5, 0.3,
-//         0.9, 0.2, 0.7, 0.3, 0.8, 0.1,
-//         0.5, 0.9, 0.4, 0.2, 0.6, 0.7,
-//         0.4, 0.8, 0.3, 0.9, 0.1, 0.5;
-
-//     input.myDate = 18.0f;
-//     input.dateLabel = "March 18th, 2024";
-
-//     return input;
-// }
-//===============
-PredictorInput getPredictorInput() {
-    PredictorInput input;
-
-    std::ifstream file("predictor_input.json");
-    if (file.good()) {
-        try {
-            json j;
-            file >> j;
-
-            if (j.contains("sets") && j["sets"].is_array() && !j["sets"].empty()) {
-                const json& s = j["sets"][0]; // first set for now
-
-                if (s.contains("matrix") && s["matrix"].is_array()) {
-                    auto mat = s["matrix"];
-                    size_t rows = mat.size();
-                    size_t cols = mat[0].size();
-
-                    input.matrix = Eigen::MatrixXf(rows, cols);
-                    for (size_t i = 0; i < rows; ++i) {
-                        for (size_t jx = 0; jx < cols; ++jx) {
-                            input.matrix(i, jx) = mat[i][jx].get<float>();
-                        }
-                    }
-                }
-
-                if (s.contains("date"))
-                    input.myDate = s["date"].get<float>();
-
-                if (s.contains("dateLabel"))
-                    input.dateLabel = s["dateLabel"].get<std::string>();
-            } else {
-                std::cerr << "[WARN] predictor_input.json missing or invalid format, using defaults.\n";
-                goto defaults;
-            }
-        } catch (const std::exception& e) {
-            std::cerr << "[ERROR] Failed to parse predictor_input.json: " << e.what() << "\n";
-            goto defaults;
-        }
-    } else {
-    defaults:
-        input.matrix = Eigen::MatrixXf(6, 6);
-        input.matrix <<
-            1, 0.5, 0.2, 0.8, 0.4, 0.9,
-            0.3, 0.7, 0.1, 0.9, 0.2, 0.6,
-            0.6, 0.4, 0.8, 0.1, 0.5, 0.3,
-            0.9, 0.2, 0.7, 0.3, 0.8, 0.1,
-            0.5, 0.9, 0.4, 0.2, 0.6, 0.7,
-            0.4, 0.8, 0.3, 0.9, 0.1, 0.5;
-
-        input.myDate = 18.0f;
-        input.dateLabel = "March 18th, 2024";
-    }
-
-    return input;
-}
 
 // -----------------------------------------------------------------------------
 // Generate random input data (deterministic-safe)
@@ -1304,97 +813,286 @@ std::pair<Eigen::MatrixXf, Eigen::MatrixXf> GenerateData(size_t n) {
 }
 
 // -----------------------------------------------------------------------------
-// Unified print & computation
-template<typename Fn>
-void computeAndPrint(const Eigen::ArrayXXf& x, int multiplier, float dateVal, Fn elementFn, const PredictorGlobals& g) {
-    float holdB_or_Date = dateVal;
-    float xSumRow[m] = {0}, xSumCol[l] = {0};
-    float holdChange = 0.0f;
-    float xBall = 0.0f;
+// JSON loader for predictor input
+// -----------------------------------------------------------------------------
+// static PredictorInput makeDefaultInput() {
+//     PredictorInput input;
+//     PredictorSet set;
 
-    ostringstream out;
+//     set.matrix = Eigen::MatrixXf(6, 6);
+//     set.matrix <<
+//         1, 0.5, 0.2, 0.8, 0.4, 0.9,
+//         0.3, 0.7, 0.1, 0.9, 0.2, 0.6,
+//         0.6, 0.4, 0.8, 0.1, 0.5, 0.3,
+//         0.9, 0.2, 0.7, 0.3, 0.8, 0.1,
+//         0.5, 0.9, 0.4, 0.2, 0.6, 0.7,
+//         0.4, 0.8, 0.3, 0.9, 0.1, 0.5;
 
-    for (size_t i = 0; i < m; ++i) {
-        for (size_t j = 0; j < l; ++j) {
-            float val = elementFn(x(i, j), multiplier, dateVal);
-            out << "[R" << i << ":C" << j << "] " << val << "  			";
-            xSumRow[i] += x(i, j);
-            xSumCol[j] += x(i, j);
-            if (i == 0 && j == 1) xBall = x(i, j) - 1;
-        }
-        out << "\n";
-    }
-    out << "\n";
+//     set.myDate = 18.0f;
+//     set.dateLabel = "March 18th, 2024";
 
-    int k = 0;
-    for (int i = 0; i < 12; ++i) {
-        if (i == 0) { holdChange = abs(xSumRow[0]); out << "\n% DATE\n"; }
-        else if (i < 6) holdChange = abs(xSumRow[i]);
-        else if (i == 6) {
-            holdChange = abs(xSumRow[0]);
-            out << "\n\n% B\n";
-            holdB_or_Date = g.holdB;
-            k = 0;
-        } else holdChange = abs(xSumRow[i - 6]);
+//     int defaults[6] = {11, 17, 24, 35, 38, 5};
+//     std::memcpy(set.constants, defaults, sizeof(defaults));
 
-        while (holdChange > 71) holdChange /= holdB_or_Date;
-        out << "ROW: P" << k + 1 << ": " << holdChange << "		";
-        k++;
-    }
+//     set.head = nullptr;
 
-    out << "\n\n";
+//     input.sets.push_back(set);
+//     return input;
+// }
 
-    k = 0;
-    for (int i = 0; i < 12; ++i) {
-        if (i == 0) { holdChange = abs(xSumCol[0]); out << "\n% DATE\n"; }
-        else if (i < 6) holdChange = abs(xSumCol[i]);
-        else if (i == 6) {
-            holdChange = abs(xSumCol[0]);
-            out << "\n\n% B\n";
-            holdB_or_Date = g.holdB;
-            k = 0;
-        } else holdChange = abs(xSumCol[i - 6]);
+//=======
+static PredictorInput makeDefaultInput() {
+    PredictorInput input;
 
-        while (holdChange > 71) holdChange /= holdB_or_Date;
-        out << "COL: P" << k + 1 << ": " << holdChange << "		";
-        k++;
-    }
+    PredictorSet set;
 
-    out << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
-    out << "Possible Ball: " << xBall << "\n\n";
+    set.matrix = Eigen::MatrixXf(6, 6);
+    set.matrix <<
+        1, 0.5, 0.2, 0.8, 0.4, 0.9,
+        0.3, 0.7, 0.1, 0.9, 0.2, 0.6,
+        0.6, 0.4, 0.8, 0.1, 0.5, 0.3,
+        0.9, 0.2, 0.7, 0.3, 0.8, 0.1,
+        0.5, 0.9, 0.4, 0.2, 0.6, 0.7,
+        0.4, 0.8, 0.3, 0.9, 0.1, 0.5;
 
-    out << "REAL:ROW: ";
-    for (int i = 0; i < m; ++i) out << "P" << i + 1 << ": " << xSumRow[i] << "		";
-    out << "\nREAL:COL: ";
-    for (int i = 0; i < l; ++i) out << "P" << i + 1 << ": " << xSumCol[i] << "		";
-    out << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n";
+    set.myDate = 18.0f;
+    set.dateLabel = "March 18th, 2024";
 
-    cout << out.str();
+    int defaults[6] = {11, 17, 24, 35, 38, 5};
+    std::memcpy(set.constants, defaults, sizeof(defaults));
+
+    set.head = NULL;
+
+    input.sets.push_back(set);
+    return input;
 }
 
+PredictorInput getPredictorInput() {
+    PredictorInput input;
+    std::ifstream file;
+
+    const char* paths[] = {
+        "data/predictor_input.json",
+        "../data/predictor_input.json",
+        "../../data/predictor_input.json"
+    };
+
+    for (int i = 0; i < 3; ++i) {
+        file.open(paths[i]);
+        if (file.is_open()) {
+            std::cout << "[INFO] Loaded JSON input from: " << paths[i] << std::endl;
+            break;
+        }
+    }
+
+    if (!file.is_open()) {
+        std::cerr << "[WARN] predictor_input.json not found; using default input.\n";
+        return makeDefaultInput();
+    }
+
+    try {
+        json j;
+        file >> j;
+        file.close();
+
+        if (!j.contains("sets") || !j["sets"].is_array() || j["sets"].empty()) {
+            std::cerr << "[ERROR] Invalid or empty 'sets' array in JSON.\n";
+            return makeDefaultInput();
+        }
+
+        int defaults[6] = {11, 17, 24, 35, 38, 5};
+
+        for (size_t sidx = 0; sidx < j["sets"].size(); ++sidx) {
+            const json& s = j["sets"][sidx];
+            PredictorSet set;
+
+            if (!s.contains("matrix") || !s["matrix"].is_array()) {
+                std::cerr << "[ERROR] Missing or invalid 'matrix' in set " << sidx << ".\n";
+                continue;
+            }
+
+            const json& mat = s["matrix"];
+            size_t rows = mat.size();
+            size_t cols = mat[0].size();
+
+            if (rows == 0 || cols == 0) {
+                std::cerr << "[ERROR] Matrix dimensions are zero in set " << sidx << ".\n";
+                continue;
+            }
+
+            set.matrix = Eigen::MatrixXf(rows, cols);
+            for (size_t i = 0; i < rows; ++i) {
+                for (size_t jx = 0; jx < cols; ++jx) {
+                    set.matrix(i, jx) = mat[i][jx].get<float>();
+                }
+            }
+
+            set.myDate = s.contains("date") ? s["date"].get<float>() : 18.0f;
+            set.dateLabel = s.contains("dateLabel") ? s["dateLabel"].get<std::string>() : "Unknown date";
+
+            if (s.contains("constants") && s["constants"].is_array() && s["constants"].size() == 6) {
+                for (int k = 0; k < 6; ++k)
+                    set.constants[k] = s["constants"][k].get<int>();
+            } else {
+                std::memcpy(set.constants, defaults, sizeof(defaults));
+            }
+
+            set.head = NULL;
+            input.sets.push_back(set);
+        }
+
+        std::cout << "[INFO] Loaded " << input.sets.size() << " matrix sets.\n";
+        return input;
+    }
+    catch (const std::exception& e) {
+        std::cerr << "[ERROR] Failed to parse JSON: " << e.what() << "\n";
+        return makeDefaultInput();
+    }
+}
+
+void appendNode(Node*& head, Node* newNode) {
+    if (!head) {
+        head = newNode;
+        return;
+    }
+    Node* curr = head;
+    while (curr->next)
+        curr = curr->next;
+    curr->next = newNode;
+}
+
+void clearList(Node*& head) {
+    while (head) {
+        Node* tmp = head;
+        head = head->next;
+        delete tmp;
+    }
+}
+
+//=====================================
+template <typename Fn>
+void computeAndPrint(const Eigen::ArrayXXf& x, int multOrSum, float date,
+                     Fn op, const PredictorGlobals& g, Node*& head) {
+    std::ostringstream out;
+    out << std::fixed << std::setprecision(6);
+    int counter = 1;
+
+    for (int i = 0; i < x.rows(); ++i) {
+        for (int j = 0; j < x.cols(); ++j) {
+            float v = x(i, j);
+            float result = op(v, multOrSum, date);
+
+            int truncVal = static_cast<int>(result);
+            int minusOne = truncVal - 1;
+            int plusOne = truncVal + 1;
+
+            std::string idx = "R" + std::to_string(i) + ":C" + std::to_string(j);
+
+            // Determine op_mode and position by comparing truncVal, minusOne, plusOne
+            // against the predictor constants. We check constants in order and take
+            // the first match. If truncVal matches => "As is"; if minusOne matches
+            // => "(-1)"; if plusOne matches => "(+1)". If no match, set both to "none".
+            std::string opMode = "none";
+            std::string pos = "none";
+
+            for (int k = 0; k < 6; ++k) {
+                int c = kConstTargets[k];
+                if (truncVal == c) {
+                    opMode = "As is";
+                    pos = "CONST_POS" + std::to_string(k + 1);
+                    break;
+                }
+                if (minusOne == c) {
+                    opMode = "(-1)";
+                    pos = "CONST_POS" + std::to_string(k + 1);
+                    break;
+                }
+                if (plusOne == c) {
+                    opMode = "(+1)";
+                    pos = "HIT_POS" + std::to_string(k + 1);
+                    break;
+                }
+            }
+
+            // Keep a position label for the node even when none matched (use matrix pos)
+            if (pos == "none") pos = "MISS_POS" + std::to_string(counter);
+
+            Node* node = new Node(idx, result, truncVal, minusOne, plusOne, opMode, pos);
+            appendNode(head, node);
+
+            out << std::setw(4) << counter++ << ") "
+                << idx << " => val=" << result
+                << ", trunc=" << truncVal
+                << ", (-1)=" << minusOne
+                << ", (+1)=" << plusOne << "\n";
+        }
+    }
+
+    std::cout << out.str();
+}
+
+
 // -----------------------------------------------------------------------------
-// Wrappers for different modes
-void computeDateOnly(const Eigen::ArrayXXf& x, int& multiplxxx, float& aDate) {
+// Wrapper for DATE ONLY mode
+void computeDateOnly(const Eigen::ArrayXXf& x, int& multiplxxx, float& aDate, Node*& head) {
     PredictorGlobals g;
     computeAndPrint(x, multiplxxx, aDate,
-        [](float v, int mult, float) { return v * mult; }, g);
+        [](float v, int mult, float) { return v * mult; }, g, head);
 }
 
-void computeDateSummation(const Eigen::ArrayXXf& x, int& aSum, float& aDate) {
+// Wrapper for (v * sum) + date mode
+void computeDateSummation(const Eigen::ArrayXXf& x, int& aSum, float& aDate, Node*& head) {
     PredictorGlobals g;
     computeAndPrint(x, aSum, aDate,
-        [](float v, int sum, float date) { return (v * sum) + date; }, g);
+        [](float v, int sum, float date) { return (v * sum) + date; }, g, head);
 }
 
-void computeDateSummation2(const Eigen::ArrayXXf& x, int& aSum, float& aDate) {
+// Wrapper for (v * date) + sum mode
+void computeDateSummation2(const Eigen::ArrayXXf& x, int& aSum, float& aDate, Node*& head) {
     PredictorGlobals g;
     computeAndPrint(x, aSum, aDate,
-        [](float v, int sum, float date) { return (v * date) + sum; }, g);
+        [](float v, int sum, float date) { return (v * date) + sum; }, g, head);
 }
 
-// -----------------------------------------------------------------------------
-// Master function
+
+void printLinkedList(Node* head) {
+    std::cout << "\n\n================== LINKED LIST AGGREGATE ==================\n";
+    Node* current = head;
+    int count = 0;
+    while (current) {
+        std::cout << count << ": "
+                  << current->idx << " | "
+                  << current->value << " | "
+                  << current->trunc << " | "
+                  << current->minus1 << " | "
+                  << current->plus1 << " | "
+                  << current->op_mode << " | "
+                  << current->position << "\n";
+        current = current->next;
+        count ++;
+    }
+    std::cout << "==========================================================\n\n";
+}
+
+//==============================================================
 void run_predictor() {
+    // Open the file for appending
+    int fd = open("matrix_output.txt", O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd != -1) {
+        // Duplicate fd onto stdout (file descriptor 1)
+        dup2(fd, STDOUT_FILENO);
+        close(fd);
+    }
+    //-- both printf (C), Go fmt.Println, and std::cout go to matrix_output.txt
+    //-------------
+    std::ofstream logfile("matrix_output.txt", std::ios::app);
+    TeeBuf tee(std::cout.rdbuf(), logfile.rdbuf());
+    std::ostream out(&tee);
+
+    // Redirect std::cout globally if you want all existing code to work:
+    std::cout.rdbuf(&tee);
+
+    // Now all std::cout calls (including inside printLinkedList) go to both console and file.
     PredictorGlobals g;
 
     Eigen::MatrixXf x1, y;
@@ -1403,6 +1101,7 @@ void run_predictor() {
     y.array() *= g.holdX;
     y.array() += g.holdB;
 
+    //-- Simulated feature expansion which need to be replaced with real features
     Eigen::MatrixXf x01 = x1.array().sin();
     Eigen::MatrixXf x02 = x1.array().cos();
     Eigen::MatrixXf x03 = x1.array().tan();
@@ -1424,77 +1123,72 @@ void run_predictor() {
     Eigen::VectorXf b_norm = (x.transpose() * x).ldlt().solve(x.transpose() * y);
     cout << "Estimated with normal equation parameters vector : " << b_norm << endl << "\n";
 
-    // Restored hardcoded test data
-    // auto input = getPredictorInput();
-    // Eigen::MatrixXf new_x = input.matrix;
-    // g.myDate = input.myDate;
-    // cout << "date: " << input.dateLabel << "\n";
-
-    //=================
-    PredictorInput input = getPredictorInput();
-
-    Eigen::MatrixXf new_x = input.matrix;
-    g.myDate = input.myDate;
-
-    cout << "date: " << input.dateLabel << "\n"
-        << fixed << setprecision(6);
-    //=================
-
-    // Eigen::MatrixXf new_x(6, 6);
-    // new_x << 
-    //     1, 0.5, 0.2, 0.8, 0.4, 0.9,
-    //     0.3, 0.7, 0.1, 0.9, 0.2, 0.6,
-    //     0.6, 0.4, 0.8, 0.1, 0.5, 0.3,
-    //     0.9, 0.2, 0.7, 0.3, 0.8, 0.1,
-    //     0.5, 0.9, 0.4, 0.2, 0.6, 0.7,
-    //     0.4, 0.8, 0.3, 0.9, 0.1, 0.5;
-
-    // g.myDate = 18;
-    // cout << "date: March 18th, 2024\n" << fixed << setprecision(6);
-    cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n";
-
-    auto new_y = new_x.array().rowwise() * b.transpose().array();
-    auto new_y_norm = new_x.array().rowwise() * b_norm.transpose().array();
-
-    cout << "\nPredicted values : \n" << new_y << "		\n\n";
-    cout << "Predicted(norm) values : \n" << new_y_norm << "		\n\n";
-
     // -------------------------------------------------------------------------
-    // STEP 1-6 FULL SEQUENCE
-    cout << "##########################################################################\n1) - PRINTING X-VECTOR: DATE ONLY:\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    g.myMultiplier = g.myDate; computeDateOnly(new_y, g.myMultiplier, g.myDate);
+    // Load multiple predictor sets
+    PredictorInput input = getPredictorInput();
+    int matrixIndex = 1;
 
-    cout << "##########################################################################\nPRINTING Y-VECTOR: DATE ONLY\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    computeDateOnly(new_y_norm, g.myMultiplier, g.myDate);
+    for (size_t si = 0; si < input.sets.size(); ++si) {
+        PredictorSet& set = input.sets[si];
+        Eigen::MatrixXf new_x = set.matrix;
+        g.myDate = set.myDate;
 
-    cout << "##########################################################################\n2) - PRINTING X-VECTOR: DATE + SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    computeDateSummation(new_y, g.myMultiplier, g.myDate);
+        cout << "\n\n======================= MATRIX SET #" << matrixIndex++ << " =======================\n";
+        cout << "date: " << set.dateLabel << "\n"
+             << fixed << setprecision(6);
 
-    cout << "##########################################################################\nPRINTING Y-VECTOR: DATE + SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    computeDateSummation(new_y_norm, g.myMultiplier, g.myDate);
+        cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n";
 
-    cout << "##########################################################################\n3) - PRINTING X-VECTOR: DATE * SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    computeDateSummation2(new_y, g.myMultiplier, g.myDate);
+        auto new_y = new_x.array().rowwise() * b.transpose().array();
+        auto new_y_norm = new_x.array().rowwise() * b_norm.transpose().array();
 
-    cout << "##########################################################################\nPRINTING Y-VECTOR: DATE * SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    computeDateSummation2(new_y_norm, g.myMultiplier, g.myDate);
+        cout << "\nPredicted values : \n" << new_y << "		\n\n";
+        cout << "Predicted(norm) values : \n" << new_y_norm << "		\n\n";
 
-    cout << "##########################################################################\n4) - PRINTING X-VECTOR: [B + DATE]\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    g.myMultiplier = g.holdB; computeDateOnly(new_y, g.myMultiplier, g.myDate);
+        // -------------------------------------------------------------------------
+        // STEP 1-6 FULL SEQUENCE
+        cout << "##########################################################################\n1) - PRINTING X-VECTOR: DATE ONLY:\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        g.myMultiplier = g.myDate; computeDateOnly(new_y, g.myMultiplier, g.myDate, set.head);
 
-    cout << "##########################################################################\nPRINTING Y-VECTOR: [B + DATE]\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    g.myMultiplier = g.holdB; computeDateOnly(new_y_norm, g.myMultiplier, g.myDate);
+        cout << "##########################################################################\nPRINTING Y-VECTOR: DATE ONLY\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        computeDateOnly(new_y_norm, g.myMultiplier, g.myDate, set.head);
 
-    cout << "################################################################################################################################################################################################################\n";
-    cout << "5) - PRINTING X-VECTOR: (NORM * B) + DATE\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    g.myMultiplier = g.holdB; computeDateSummation(new_y, g.myMultiplier, g.myDate);
+        cout << "##########################################################################\n2) - PRINTING X-VECTOR: DATE + SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        computeDateSummation(new_y, g.myMultiplier, g.myDate, set.head);
 
-    cout << "##########################################################################\nPRINTING Y-VECTOR: (NORM * B) + DATE\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    g.myMultiplier = g.holdB; computeDateSummation(new_y_norm, g.myMultiplier, g.myDate);
+        cout << "##########################################################################\nPRINTING Y-VECTOR: DATE + SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        computeDateSummation(new_y_norm, g.myMultiplier, g.myDate, set.head);
 
-    cout << "##########################################################################\n6) - PRINTING X-VECTOR: (NORM * DATE) + B\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    g.myMultiplier = g.holdB; computeDateSummation2(new_y, g.myMultiplier, g.myDate);
+        cout << "##########################################################################\n3) - PRINTING X-VECTOR: DATE * SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        computeDateSummation2(new_y, g.myMultiplier, g.myDate, set.head);
 
-    cout << "##########################################################################\nPRINTING Y-VECTOR: (NORM * DATE) + B\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    g.myMultiplier = g.holdB; computeDateSummation2(new_y_norm, g.myMultiplier, g.myDate);
+        cout << "##########################################################################\nPRINTING Y-VECTOR: DATE * SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        computeDateSummation2(new_y_norm, g.myMultiplier, g.myDate, set.head);
+
+        cout << "##########################################################################\n4) - PRINTING X-VECTOR: [B + DATE]\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        g.myMultiplier = g.holdB; computeDateOnly(new_y, g.myMultiplier, g.myDate, set.head);
+
+        cout << "##########################################################################\nPRINTING Y-VECTOR: [B + DATE]\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        g.myMultiplier = g.holdB; computeDateOnly(new_y_norm, g.myMultiplier, g.myDate, set.head);
+
+        cout << "################################################################################################################################################################################################################\n";
+        cout << "5) - PRINTING X-VECTOR: (NORM * B) + DATE\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        g.myMultiplier = g.holdB; computeDateSummation(new_y, g.myMultiplier, g.myDate, set.head);
+
+        cout << "##########################################################################\nPRINTING Y-VECTOR: (NORM * B) + DATE\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        g.myMultiplier = g.holdB; computeDateSummation(new_y_norm, g.myMultiplier, g.myDate, set.head);
+
+        cout << "##########################################################################\n6) - PRINTING X-VECTOR: (NORM * DATE) + B\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        g.myMultiplier = g.holdB; computeDateSummation2(new_y, g.myMultiplier, g.myDate, set.head);
+
+        cout << "##########################################################################\nPRINTING Y-VECTOR: (NORM * DATE) + B\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        g.myMultiplier = g.holdB; computeDateSummation2(new_y_norm, g.myMultiplier, g.myDate, set.head);
+
+        //==== FINAL OUTPUT PER MATRIX SET ====
+        std::cout << "\n\n========= FINAL LINKED LIST OUTPUT FOR MATRIX =========\n";
+        printLinkedList(set.head);
+        clearList(set.head);
+    }
+
+    // ( future aggregate section across all sets)
 }

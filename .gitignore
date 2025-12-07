@@ -1,3 +1,4 @@
 eigen_samples/
 *.csv
+*.json
 SPECIAL_NOTE.md
