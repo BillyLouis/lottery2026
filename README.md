@@ -7,13 +7,18 @@ Use at your own risk.
 ## ################################
 
 
-![alt text](images/2022_August15_PBall_IMG_3039.jpg)
-
-
-![alt text](images/<2022_June15_PBall_IMG_2871 - use.jpg>)
-
 
 ![alt text](images/2022_March30_SuperLotto_IMG_2798.png)
+
+![alt text](images/2022_August15_PBall_IMG_3039.jpg)
+
+![alt text](images/IMG_0787SuperL1.jpg)
+
+![alt text](images/2022_June15_PBall_IMG_2871.jpg)
+
+
+
+
 
 
 ### Preface
@@ -62,6 +67,8 @@ $ sudo apt install -y build-essential pkg-config libssl-dev
 CGO_ENABLED=1 go run main.go   -game=fantasy5   -mode=simulate   -predict=1   -iters=200000   -seed-mode=sha256   -seed-base=123456789   -date=2024-05-05
 
 CGO_ENABLED=1 go run main.go   -game=fantasy5   -mode=simulate   -predict=3   -iters=4000   -seed-mode=primejump   -seed-base=123456789   -date=2024-05-04
+# Compile 1A:
+CGO_ENABLED=1 go run ./main.go -game fantasy5 -mode simulate -iters 15000005 -predict 3
 
 # or run the shell script: in scripts/run_experiments.sh
 # Compile 2:

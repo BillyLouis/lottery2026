@@ -790,13 +790,10 @@ struct PredictorGlobals {
     float holdB = 4.0f;
     float holdX = 0.3f;
     float xBall = 0.0f;
-    float myDate = 18.0f;
+    float myDate = 18.0f; // Default date: March 18th, 2024
     int myMonth = 3;
     int myMultiplier = 0;
 };
-
-
-
 
 // -----------------------------------------------------------------------------
 // Generate random input data (deterministic-safe)
@@ -816,32 +813,6 @@ std::pair<Eigen::MatrixXf, Eigen::MatrixXf> GenerateData(size_t n) {
 // -----------------------------------------------------------------------------
 // JSON loader for predictor input
 // -----------------------------------------------------------------------------
-// static PredictorInput makeDefaultInput() {
-//     PredictorInput input;
-//     PredictorSet set;
-
-//     set.matrix = Eigen::MatrixXf(6, 6);
-//     set.matrix <<
-//         1, 0.5, 0.2, 0.8, 0.4, 0.9,
-//         0.3, 0.7, 0.1, 0.9, 0.2, 0.6,
-//         0.6, 0.4, 0.8, 0.1, 0.5, 0.3,
-//         0.9, 0.2, 0.7, 0.3, 0.8, 0.1,
-//         0.5, 0.9, 0.4, 0.2, 0.6, 0.7,
-//         0.4, 0.8, 0.3, 0.9, 0.1, 0.5;
-
-//     set.myDate = 18.0f;
-//     set.dateLabel = "March 18th, 2024";
-
-//     int defaults[6] = {11, 17, 24, 35, 38, 5};
-//     std::memcpy(set.constants, defaults, sizeof(defaults));
-
-//     set.head = nullptr;
-
-//     input.sets.push_back(set);
-//     return input;
-// }
-
-//=======
 static PredictorInput makeDefaultInput() {
     PredictorInput input;
 
@@ -986,7 +957,8 @@ void clearList(Node*& head) {
 //=====================================
 template <typename Fn>
 void computeAndPrint(const Eigen::ArrayXXf& x, int multOrSum, float date,
-                     Fn op, const PredictorGlobals& g, Node*& head) {
+                     Fn op, const PredictorGlobals& g, Node*& head,
+                     const struct PredictorSet& pset) {
     std::ostringstream out;
     out << std::fixed << std::setprecision(6);
     int counter = 1;
@@ -1010,20 +982,20 @@ void computeAndPrint(const Eigen::ArrayXXf& x, int multOrSum, float date,
             std::string pos = "none";
 
             for (int k = 0; k < 6; ++k) {
-                int c = kConstTargets[k];
+                int c = pset.constants[k];
                 if (truncVal == c) {
                     opMode = "As is";
-                    pos = "HIT_POS" + std::to_string(k + 1); // Still Hit
+                    pos = "HIT_POS" + std::to_string(k + 1);
                     break;
                 }
                 if (minusOne == c) {
                     opMode = "(-1)";
-                    pos = "HIT_POS" + std::to_string(k + 1); // Still Hit
+                    pos = "HIT_POS" + std::to_string(k + 1);
                     break;
                 }
                 if (plusOne == c) {
                     opMode = "(+1)";
-                    pos = "HIT_POS" + std::to_string(k + 1); // Hit position
+                    pos = "HIT_POS" + std::to_string(k + 1);
                     break;
                 }
             }
@@ -1041,31 +1013,30 @@ void computeAndPrint(const Eigen::ArrayXXf& x, int multOrSum, float date,
                 << ", (+1)=" << plusOne << "\n";
         }
     }
-
     std::cout << out.str();
 }
 
 
 // -----------------------------------------------------------------------------
 // Wrapper for DATE ONLY mode
-void computeDateOnly(const Eigen::ArrayXXf& x, int& multiplxxx, float& aDate, Node*& head) {
+void computeDateOnly(const Eigen::ArrayXXf& x, int& multiplxxx, float& aDate, Node*& head, const PredictorSet& set) {
     PredictorGlobals g;
     computeAndPrint(x, multiplxxx, aDate,
-        [](float v, int mult, float) { return v * mult; }, g, head);
+        [](float v, int mult, float) { return v * mult; }, g, head, set);
 }
 
 // Wrapper for (v * sum) + date mode
-void computeDateSummation(const Eigen::ArrayXXf& x, int& aSum, float& aDate, Node*& head) {
+void computeDateSummation(const Eigen::ArrayXXf& x, int& aSum, float& aDate, Node*& head, const PredictorSet& set) {
     PredictorGlobals g;
     computeAndPrint(x, aSum, aDate,
-        [](float v, int sum, float date) { return (v * sum) + date; }, g, head);
+        [](float v, int sum, float date) { return (v * sum) + date; }, g, head, set);
 }
 
 // Wrapper for (v * date) + sum mode
-void computeDateSummation2(const Eigen::ArrayXXf& x, int& aSum, float& aDate, Node*& head) {
+void computeDateSummation2(const Eigen::ArrayXXf& x, int& aSum, float& aDate, Node*& head, const PredictorSet& set) {
     PredictorGlobals g;
     computeAndPrint(x, aSum, aDate,
-        [](float v, int sum, float date) { return (v * date) + sum; }, g, head);
+        [](float v, int sum, float date) { return (v * date) + sum; }, g, head, set);
 }
 
 
@@ -1357,6 +1328,38 @@ void run_predictor() {
     Eigen::MatrixXf x05 = (x1.array() * 0.5f).cos();
     Eigen::MatrixXf x06 = (x1.array() * 0.1f).tan();
 
+    //-- Overriding the above declarations with realistic feature expansions
+    //-- Realistic feature expansions
+    x01 <<10,02,04,11,8,11,03,12,14,20,06,02,06,02,36,27,07,02,02,19,10,03,03,03,10,12,18,8,10,07,40,03,
+        05,8,19,21,8,01,9,05,03,10,10,07,30,30,23,11,12,01,12,28,02,21,22,20,37,05,01,37,20,9,11,32,
+        10,03,12,27,17,16,35,06,12,07,05,01,25,01,27,15,33,01,8,26,24,8,13,04,19,8,19,44,06,11,02,03,
+        11,04,01,12,16,35,16,22,21,10,13,14;
+    
+    x02 <<15,15,11,29,14,15,18,21,17,21,14,13,12,06,38,29,16,13,06,20,30,25,07,21,40,15,26,32,16,20,43,16,
+        31,15,25,46,30,02,25,23,06,27,30,29,32,31,29,20,17,17,22,38,07,22,23,40,51,36,04,40,31,22,20,35,
+        20,15,22,39,36,28,36,21,18,24,21,21,30,04,28,22,46,05,21,40,29,31,20,22,29,25,28,52,07,13,8,19,
+        13,10,19,17,23,36,18,36,25,21,30,16;
+        
+    x03<<51,38,38,30,33,43,37,22,18,36,25,32,39,9,45,45,19,23,24,40,37,44,33,38,45,38,28,55,32,29,48,48,
+        34,26,43,47,48,24,34,28,26,29,51,36,48,41,47,33,30,52,54,42,11,39,37,47,54,39,18,50,38,41,22,40,
+        29,45,26,54,47,36,51,49,20,36,32,22,53,11,44,38,52,29,30,41,50,39,40,35,34,34,46,54,11,22,21,27,
+        55,37,20,20,28,47,35,48,32,26,33,23;
+        
+    x04<<61,54,49,47,36,55,51,30,21,60,33,33,48,33,62,55,48,34,51,42,53,53,50,50,56,57,38,64,63,38,59,52,
+        51,35,46,57,57,50,44,43,35,44,57,41,53,42,59,39,45,58,66,47,17,44,62,55,58,45,46,61,40,47,33,52,
+        48,51,46,56,60,39,55,65,29,54,36,34,59,59,67,54,59,54,49,55,65,43,51,38,44,38,50,64,66,27,34,37,
+        56,39,38,21,40,61,39,59,63,41,45,50;
+        
+    x05<<69,65,69,53,67,61,59,33,27,65,46,48,50,39,64,58,68,66,61,59,59,64,69,59,67,63,47,66,65,67,69,60,
+        53,45,48,62,64,57,45,56,51,58,63,43,63,48,60,65,62,64,69,52,32,60,63,63,60,57,62,63,49,61,54,54,
+        51,61,59,59,61,59,61,67,30,60,58,47,60,67,68,66,62,62,57,65,66,60,63,39,50,41,54,69,67,46,62,40,
+        69,69,54,26,63,63,53,61,67,49,61,53;
+        
+    x06<<14,11,16,16,17,10,13,24,9,13,17,22,07,11,19,02,15,02,01,15,04,10,24,06,02,24,17,10,17,22,19,01,
+        23,9,14,8,9,26,8,19,17,24,20,05,12,03,15,24,05,01,15,01,11,12,19,05,19,11,25,21,21,21,24,01,
+        17,8,26,24,15,04,26,18,16,23,14,04,05,10,11,03,10,03,8,24,14,17,01,20,25,10,9,26,19,20,16,8,
+        04,24,17,8,01,03,21,22,06,25,14,03;	
+
     Eigen::MatrixXf x(n, 6);
     x << x01, x02, x03, x04, x05, x06;
 
@@ -1396,41 +1399,41 @@ void run_predictor() {
         // -------------------------------------------------------------------------
         // STEP 1-6 FULL SEQUENCE
         cout << "##########################################################################\n1) - PRINTING X-VECTOR: DATE ONLY:\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-        g.myMultiplier = g.myDate; computeDateOnly(new_y, g.myMultiplier, g.myDate, set.head);
+        g.myMultiplier = g.myDate; computeDateOnly(new_y, g.myMultiplier, g.myDate, set.head, set);
 
         cout << "##########################################################################\nPRINTING Y-VECTOR: DATE ONLY\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-        computeDateOnly(new_y_norm, g.myMultiplier, g.myDate, set.head);
+        computeDateOnly(new_y_norm, g.myMultiplier, g.myDate, set.head, set);
 
         cout << "##########################################################################\n2) - PRINTING X-VECTOR: DATE + SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-        computeDateSummation(new_y, g.myMultiplier, g.myDate, set.head);
+        computeDateSummation(new_y, g.myMultiplier, g.myDate, set.head, set);
 
         cout << "##########################################################################\nPRINTING Y-VECTOR: DATE + SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-        computeDateSummation(new_y_norm, g.myMultiplier, g.myDate, set.head);
+        computeDateSummation(new_y_norm, g.myMultiplier, g.myDate, set.head, set);
 
         cout << "##########################################################################\n3) - PRINTING X-VECTOR: DATE * SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-        computeDateSummation2(new_y, g.myMultiplier, g.myDate, set.head);
+        computeDateSummation2(new_y, g.myMultiplier, g.myDate, set.head, set);
 
         cout << "##########################################################################\nPRINTING Y-VECTOR: DATE * SUM\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-        computeDateSummation2(new_y_norm, g.myMultiplier, g.myDate, set.head);
+        computeDateSummation2(new_y_norm, g.myMultiplier, g.myDate, set.head, set);
 
         cout << "##########################################################################\n4) - PRINTING X-VECTOR: [B + DATE]\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-        g.myMultiplier = g.holdB; computeDateOnly(new_y, g.myMultiplier, g.myDate, set.head);
+        g.myMultiplier = g.holdB; computeDateOnly(new_y, g.myMultiplier, g.myDate, set.head, set);
 
         cout << "##########################################################################\nPRINTING Y-VECTOR: [B + DATE]\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-        g.myMultiplier = g.holdB; computeDateOnly(new_y_norm, g.myMultiplier, g.myDate, set.head);
+        g.myMultiplier = g.holdB; computeDateOnly(new_y_norm, g.myMultiplier, g.myDate, set.head, set);
 
         cout << "################################################################################################################################################################################################################\n";
         cout << "5) - PRINTING X-VECTOR: (NORM * B) + DATE\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-        g.myMultiplier = g.holdB; computeDateSummation(new_y, g.myMultiplier, g.myDate, set.head);
+        g.myMultiplier = g.holdB; computeDateSummation(new_y, g.myMultiplier, g.myDate, set.head, set);
 
         cout << "##########################################################################\nPRINTING Y-VECTOR: (NORM * B) + DATE\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-        g.myMultiplier = g.holdB; computeDateSummation(new_y_norm, g.myMultiplier, g.myDate, set.head);
+        g.myMultiplier = g.holdB; computeDateSummation(new_y_norm, g.myMultiplier, g.myDate, set.head, set);
 
         cout << "##########################################################################\n6) - PRINTING X-VECTOR: (NORM * DATE) + B\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-        g.myMultiplier = g.holdB; computeDateSummation2(new_y, g.myMultiplier, g.myDate, set.head);
+        g.myMultiplier = g.holdB; computeDateSummation2(new_y, g.myMultiplier, g.myDate, set.head, set);
 
         cout << "##########################################################################\nPRINTING Y-VECTOR: (NORM * DATE) + B\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-        g.myMultiplier = g.holdB; computeDateSummation2(new_y_norm, g.myMultiplier, g.myDate, set.head);
+        g.myMultiplier = g.holdB; computeDateSummation2(new_y_norm, g.myMultiplier, g.myDate, set.head, set);
 
         //==== FINAL OUTPUT PER MATRIX SET ====
         std::cout << "\n\n========= FINAL LINKED LIST OUTPUT FOR MATRIX =========\n";
